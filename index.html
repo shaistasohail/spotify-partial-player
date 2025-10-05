@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spotify Partial Player</title>
+</head>
+<body>
+<h1>🎧 Spotify Partial Song Player</h1>
+<button id="loginBtn">Login with Spotify</button>
+<br><br>
+<button id="playBtn" disabled>▶️ Play Segment</button>
+
+<script>
+/*** --- CONFIG --- ***/
+const CLIENT_ID = "YOUR_SPOTIFY_CLIENT_ID"; // 👈 Replace this
+const REDIRECT_URI = window.location.origin; // e.g. https://yourproject.glitch.me
+const SCOPES = "user-modify-playback-state user-read-playback-state user-read-currently-playing";
+
+/*** --- AUTH STEP --- ***/
+function getAccessToken() {
+  const hash = window.location.hash;
+  if (hash.includes("access_token")) {
+    const params = new URLSearchParams(hash.substring(1));
+    const token = params.get("access_token");
+    localStorage.setItem("spotify_token", token);
+    window.history.pushState("", document.title, window.location.pathname);
+    return token;
+  }
+  return localStorage.getItem("spotify_token");
+}
+
+const token = getAccessToken();
+const loginBtn = document.getElementById("loginBtn");
+const playBtn = document.getElementById("playBtn");
+
+if (token) {
+  loginBtn.textContent = "✅ Logged in!";
+  playBtn.disabled = false;
+}
+
+loginBtn.onclick = () => {
+  const authUrl = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(SCOPES)}`;
+  window.location = authUrl;
+};
+
+/*** --- PLAY A SEGMENT --- ***/
+async function playSegment() {
+  const TRACK_URI = "spotify:track:3n3Ppam7vgaVa1iaRUc9Lp"; // Example: Eminem - Lose Yourself
+  const START_MS = 60000; // 1:00
+  const END_MS = 90000;   // 1:30
+
+  try {
+    // Start playback
+    await fetch("https://api.spotify.com/v1/me/player/play", {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ uris: [TRACK_URI], position_ms: START_MS })
+    });
+
+    // Wait until the end of segment, then pause
+    setTimeout(async () => {
+      await fetch("https://api.spotify.com/v1/me/player/pause", {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    }, END_MS - START_MS);
+  } catch (err) {
+    alert("Error: " + err);
+  }
+}
+
+playBtn.onclick = playSegment;
+</script>
+</body>
+</html>
